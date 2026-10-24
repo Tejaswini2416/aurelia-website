@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AURELIA Fine Jewelry
 
-## Getting Started
+A luxury jewelry storefront built with Next.js App Router, TypeScript, Tailwind CSS, Framer Motion, Swiper, Prisma, PostgreSQL, and Redis.
 
-First, run the development server:
+## Run locally
 
 ```bash
+npm install
+Copy-Item .env.example .env
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Replace the placeholder PostgreSQL connection in `.env` before using Prisma-backed consultation booking. The storefront otherwise works without external services using a small illustrative catalog; Redis is required by the inventory reservation service. Configure real metal market rates before relying on the pricing API.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run db:generate
+npm run db:validate
+npm run db:migrate
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Storefront
 
-## Learn More
+- Home, collection, and product pages with responsive navigation and search suggestions.
+- Filters for metal, gemstone, and price; sorting and grid density controls.
+- Product customization for metal, ring size, and engraving, including a certificate preview and pricing breakdown.
+- Persistent browser cart and wishlist, currency display (illustrative USD/EUR/GBP conversion), and a multi-step checkout UI.
+- Three-step ring builder and consultation request form.
 
-To learn more about Next.js, take a look at the following resources:
+## API routes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `GET /api/v1/products` supports `q`, `category`, `metal`, `stone`, `minPrice`, `maxPrice`, `cut`, and `sort`.
+- `GET /api/v1/products/:slug` returns the product and available metal options.
+- `POST /api/v1/pricing/calculate` validates a metal/weight/stone/making-charge quote and returns a transparent price breakdown.
+- `POST /api/v1/appointments` validates and persists a consultation request using Prisma.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Catalog responses are currently backed by `src/lib/catalog.ts`. Replace that repository with PostgreSQL-backed catalog queries and populate the included Prisma models before launch. `src/lib/inventory-lock.ts` provides token-checked Redis reservations with a 15-minute expiry; call it from an authenticated checkout flow after adding customer-session authorization.
 
-## Deploy on Vercel
+## Production integration boundary
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The checkout and payment choices are a frontend demonstration; no payment is processed and no order is created. Before accepting real orders, integrate a PCI-compliant provider (for example Stripe/PayPal/Klarna), server-side order creation, authenticated customer sessions and refresh-token rotation, authorization, stock checks, rate limiting, validated market-rate feeds, transactional email, shipping-label/insurance providers, and production image/certificate storage. Never collect or store raw card numbers in this application.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Validation
+
+```bash
+npm run typecheck
+npm run lint
+npm run db:validate
+npm run build
+```

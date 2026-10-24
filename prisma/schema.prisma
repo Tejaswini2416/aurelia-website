@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum MetalType {
+  YELLOW_GOLD
+  WHITE_GOLD
+  ROSE_GOLD
+  PLATINUM
+  SILVER_925
+}
+
+enum MetalPurity {
+  K14
+  K18
+  K22
+  PURE
+}
+
+enum StoneType {
+  DIAMOND
+  EMERALD
+  RUBY
+  SAPPHIRE
+  PEARL
+  OTHER
+}
+
+enum DiamondCut {
+  ROUND
+  OVAL
+  PRINCESS
+  PEAR
+  EMERALD
+  CUSHION
+  OTHER
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  IN_PRODUCTION
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+model Product {
+  id              String           @id @default(uuid()) @db.Uuid
+  title           String
+  slug            String           @unique
+  sku             String           @unique
+  description     String           @db.Text
+  categoryId      String           @map("category_id") @db.Uuid
+  basePrice       Decimal          @map("base_price") @db.Decimal(12, 2)
+  isCustomizable  Boolean          @default(false) @map("is_customizable")
+  status          ProductStatus    @default(DRAFT)
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  category        Category         @relation(fields: [categoryId], references: [id])
+  variants        ProductVariant[]
+  orderItems      OrderItem[]
+
+  @@index([categoryId, status])
+  @@map("products")
+}
+
+model Category {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String    @unique
+  products  Product[]
+
+  @@map("categories")
+}
+
+model ProductVariant {
+  id               String       @id @default(uuid()) @db.Uuid
+  productId        String       @map("product_id") @db.Uuid
+  sku              String       @unique
+  metalType        MetalType    @map("metal_type")
+  metalPurity      MetalPurity  @map("metal_purity")
+  metalWeightGrams Decimal      @map("metal_weight_grams") @db.Decimal(8, 3)
+  makingCharges    Decimal      @map("making_charges") @db.Decimal(12, 2)
+  stockQuantity    Int          @default(0) @map("stock_quantity")
+  images           String[]     @default([])
+  createdAt        DateTime     @default(now()) @map("created_at")
+  product          Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  gemstones        Gemstone[]
+  orderItems       OrderItem[]
+
+  @@index([productId, metalType, metalPurity])
+  @@map("product_variants")
+}
+
+model Gemstone {
+  id                String       @id @default(uuid()) @db.Uuid
+  variantId         String       @map("variant_id") @db.Uuid
+  stoneType         StoneType    @map("stone_type")
+  caratWeight       Decimal      @map("carat_weight") @db.Decimal(6, 3)
+  cut               DiamondCut   @default(OTHER)
+  color             String?
+  clarity           String?
+  certificateNumber String?      @map("certificate_number")
+  certificateUrl    String?      @map("certificate_url")
+  stonePrice        Decimal      @map("stone_price") @db.Decimal(12, 2)
+  variant           ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([stoneType, cut, caratWeight])
+  @@map("gemstones")
+}
+
+model Customer {
+  id           String           @id @default(uuid()) @db.Uuid
+  email        String           @unique
+  firstName    String?          @map("first_name")
+  lastName     String?          @map("last_name")
+  passwordHash String?          @map("password_hash")
+  role         String           @default("CUSTOMER")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  orders       Order[]
+  appointments Appointment[]
+
+  @@map("customers")
+}
+
+model Order {
+  id              String                 @id @default(uuid()) @db.Uuid
+  customerId      String?                @map("customer_id") @db.Uuid
+  orderNumber     String                 @unique @map("order_number")
+  status          OrderStatus            @default(PENDING)
+  subtotal        Decimal                @db.Decimal(12, 2)
+  tax             Decimal                @default(0) @db.Decimal(12, 2)
+  shipping        Decimal                @default(0) @db.Decimal(12, 2)
+  total           Decimal                @db.Decimal(12, 2)
+  currency        String                 @default("USD")
+  giftNote        String?                @map("gift_note")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  customer        Customer?              @relation(fields: [customerId], references: [id])
+  items           OrderItem[]
+  payment         PaymentTransaction?
+  shippingAddress ShippingAddress?
+  shipment        InsuredShipmentTracking?
+
+  @@index([customerId, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id               String            @id @default(uuid()) @db.Uuid
+  orderId          String            @map("order_id") @db.Uuid
+  productId        String            @map("product_id") @db.Uuid
+  variantId        String?           @map("variant_id") @db.Uuid
+  quantity         Int               @default(1)
+  unitPrice        Decimal           @map("unit_price") @db.Decimal(12, 2)
+  configuration    Json?
+  order            Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product          Product           @relation(fields: [productId], references: [id])
+  variant          ProductVariant?   @relation(fields: [variantId], references: [id])
+  engraving        CustomEngraving?
+
+  @@map("order_items")
+}
+
+model CustomEngraving {
+  id              String    @id @default(uuid()) @db.Uuid
+  orderItemId     String    @unique @map("order_item_id") @db.Uuid
+  text            String
+  fontStyle       String    @default("classic") @map("font_style")
+  previewImageUrl String?   @map("preview_image_url")
+  orderItem       OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@map("custom_engraving")
+}
+
+model PaymentTransaction {
+  id                String        @id @default(uuid()) @db.Uuid
+  orderId           String        @unique @map("order_id") @db.Uuid
+  provider          String
+  providerReference String?       @map("provider_reference")
+  status            PaymentStatus @default(PENDING)
+  amount            Decimal       @db.Decimal(12, 2)
+  currency          String        @default("USD")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([provider, providerReference])
+  @@map("payment_transactions")
+}
+
+model ShippingAddress {
+  id         String   @id @default(uuid()) @db.Uuid
+  orderId    String   @unique @map("order_id") @db.Uuid
+  firstName  String   @map("first_name")
+  lastName   String   @map("last_name")
+  email      String
+  phone      String?
+  line1      String
+  line2      String?
+  city       String
+  region     String?
+  postalCode String   @map("postal_code")
+  country    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("shipping_addresses")
+}
+
+model InsuredShipmentTracking {
+  id                 String    @id @default(uuid()) @db.Uuid
+  orderId            String    @unique @map("order_id") @db.Uuid
+  carrier            String?
+  trackingNumber     String?   @map("tracking_number")
+  insuranceReference String?   @map("insurance_reference")
+  insuredValue       Decimal   @map("insured_value") @db.Decimal(12, 2)
+  shippedAt          DateTime? @map("shipped_at")
+  deliveredAt        DateTime? @map("delivered_at")
+  order              Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("insured_shipment_tracking")
+}
+
+model Appointment {
+  id          String    @id @default(uuid()) @db.Uuid
+  customerId  String?   @map("customer_id") @db.Uuid
+  name        String
+  email       String
+  topic       String
+  scheduledAt DateTime  @map("scheduled_at")
+  status      String    @default("REQUESTED")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  customer    Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([scheduledAt, status])
+  @@map("appointments")
+}
