@@ -4,8 +4,9 @@ const RESERVATION_SECONDS = 15 * 60;
 let client: Redis | undefined;
 
 function redisClient() {
-  if (!process.env.REDIS_URL) throw new Error("REDIS_URL must be configured to reserve high-value inventory.");
-  client ??= new Redis(process.env.REDIS_URL, {
+  const redisUrl = process.env.REDIS_URL || process.env.KV_URL || process.env.STORAGE_URL;
+  if (!redisUrl) throw new Error("REDIS_URL must be configured to reserve high-value inventory.");
+  client ??= new Redis(redisUrl, {
     maxRetriesPerRequest: 2,
     enableReadyCheck: true,
     lazyConnect: true,
